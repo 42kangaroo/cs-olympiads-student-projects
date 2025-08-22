@@ -5,3 +5,4 @@ jax-codex @ git+https://github.com/balle-lab/codex.git@91a1b1cc38318b087ae90397a
 numpy==2.3.2
 optax==0.2.5
 pillow==11.3.0
+equinox==0.13.0

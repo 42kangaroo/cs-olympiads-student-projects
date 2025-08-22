@@ -1,8 +1,8 @@
 import jax.numpy as jnp
 from image_converter_utils import jxl_xyb_to_srgb, srgb_to_jxl_xyb, dct_to_xyb, xyb_to_dct, upscale
+import equinox as eqx
 
-
-class OptimizerValues:
+class OptimizerValues(eqx.Module):
 
     def __init__(self, shape):
         self.values = jnp.zeros(shape)
