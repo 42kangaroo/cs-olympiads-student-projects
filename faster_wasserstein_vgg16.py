@@ -11,7 +11,8 @@ def get_features(image, num_scales=3):
     Precompute features of an image in [H, W, C] format
     Parameters
     ----------
-    image : image to be converted in [H, W, C] format
+    image
+        image to be converted in [H, W, C] format
     num_scales
         The number of scales of the image the features should be computed on. The image
         will be downsampled ``num_scales - 1`` times and VGG features computed on the

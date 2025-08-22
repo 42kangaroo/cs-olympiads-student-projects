@@ -12,6 +12,7 @@ from PIL import Image
 def shifted_border_pad(img):
     """
     Pad an NHWC image so that:
+
     - Top row: shifted right by 1 from original top row
     - Left col: shifted down by 1 from original left col
     - Bottom/right: zero padded
