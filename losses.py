@@ -157,6 +157,21 @@ def loss_fn(
         l2_rgb_multiplier,
         use_l2,
 ):
+    """
+    calculate the loss as a combination of compression loss and wasserstein loss / l2 loss
+
+    :param optimizer_values: an instance of OptimizerValues class which represents the layers of images
+    :param target: the target image
+    :param target_features: the precomputed features of the target image
+    :param log2_sigma: the log_sigma filter in the wasserstein loss
+    :param lambd: weight of compression loss in the compression loss (the weighted average is taken, with wasserstein/l2 loss having weight 1). Somewhere between 0 and 10 is recommended.
+    :param gamma: weight of coefficients loss in the compression loss (the weighted average is taken, with context loss having weight 1). Somewhere between 16 and 255 is recommended.
+    :param xyb_multiplier_dct: a list of 3 values for x, y, and b respectively which are multiplied to the layers when computing the coefficient loss
+    :param xyb_multiplier_context: a list of 3 values for x, y, and b respectively which are multiplied to the layers when computing the context loss
+    :param l2_rgb_multiplier: a number which should be multiplied to the difference for the MSE term in training
+    :param use_l2: whether to use l2 instead of wasserstein loss
+    :return: the total loss and a tuple with individual losses (wasserstein/l2, list of compression losses)
+    """
     compression_losses = compression_loss_DCT_multi(
         optimizer_values.convert_to_xyb_dct(), xyb_multiplier_dct, xyb_multiplier_context, gamma
     )
