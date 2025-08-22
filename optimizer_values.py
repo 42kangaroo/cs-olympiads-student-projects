@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from image_converter_utils import jxl_xyb_to_srgb, srgb_to_jxl_xyb, dct_to_xyb, xyb_to_dct
+from image_converter_utils import jxl_xyb_to_srgb, srgb_to_jxl_xyb, dct_to_xyb, xyb_to_dct, upscale
 
 
 class OptimizerValues:
@@ -16,6 +16,10 @@ class OptimizerValues:
     def convert_to_xyb_dct(self):
         pass
 
+    def combine_to_rgb(self):
+        xyb_upscaled = [upscale(image, 2**i) for i, image in enumerate(self.convert_to_xyb())]
+        return jxl_xyb_to_srgb(jnp.sum(xyb_upscaled, axis=0))
+
 class RGBOptimizerValues(OptimizerValues):
     def convert_to_rgb(self):
         return self.values
@@ -25,6 +29,7 @@ class RGBOptimizerValues(OptimizerValues):
 
     def convert_to_xyb_dct(self):
         return [xyb_to_dct(val) for val in self.convert_to_xyb()]
+
 
 class XYBOptimizerValues(OptimizerValues):
     def convert_to_xyb(self):
