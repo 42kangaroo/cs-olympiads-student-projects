@@ -28,7 +28,7 @@ def train_step(
         lambd,
         gamma,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_xyb_multiplier,
         use_l2,
 ):
@@ -40,7 +40,7 @@ def train_step(
         lambd,
         gamma,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_xyb_multiplier,
         use_l2,
     )
@@ -58,12 +58,31 @@ def create_image_split(
         l2_loops,
         ws_loops,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_rgb_multiplier,
         layers,
-        index,
+        file_prefix,
         base
 ):
+    """
+    Create a split of the image which can be compressed better (hopefully).
+    Writes XYB text files to ``file_prefix_i.txt`` for all ``i`` layers and each layer as png image and one for the combined image.
+    
+    :param target: the target image
+    :param target_features: the precomputed features of the target image
+    :param lambd: weight of compression loss in the compression loss (the weighted average is taken, with wasserstein/l2 loss having weight 1). Somewhere between 0 and 10 is recommended.
+    :param gamma: weight of coefficients loss in the compression loss (the weighted average is taken, with context loss having weight 1). Somewhere between 16 and 255 is recommended.
+    :param log2_sigma_value: one integer, the uniform value of the log_sigma filter in the wasserstein loss
+    :param l2_loops: number of training steps with l2 loss
+    :param ws_loops: number of training steps with Wasserstein loss
+    :param xyb_multiplier_dct: a list of 3 values for x, y, and b respectively which are multiplied to the layers when computing the coefficient loss
+    :param xyb_multiplier_context: a list of 3 values for x, y, and b respectively which are multiplied to the layers when computing the context loss
+    :param l2_rgb_multiplier: a number which should be multiplied to the difference for the MSE term in training
+    :param layers: number of layers between 1 and 4
+    :param file_prefix: directory and filename prefix of the files that will be saved
+    :param base: one of "rgb", "xyb" or "dct", representing which training variables should be used
+    :return: a pair with the final wasserstein loss and a list of compression losses per layer
+    """
     opt_params = {
         (True,): {"lr": 5e-3, "wd": 0.0, "steps": l2_loops},
         (False,): {"lr": 5e-3, "wd": 0.0, "steps": ws_loops},
@@ -89,7 +108,7 @@ def create_image_split(
         lambd,
         gamma,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_rgb_multiplier,
         True,
     )
@@ -105,7 +124,7 @@ def create_image_split(
         lambd,
         gamma,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_rgb_multiplier,
         False,
     )
@@ -142,7 +161,7 @@ def create_image_split(
             lambd,
             gamma,
             xyb_multiplier_dct,
-            xyb_multiplier,
+            xyb_multiplier_context,
             l2_rgb_multiplier,
             use_l2,
         )
@@ -156,7 +175,7 @@ def create_image_split(
                 lambd,
                 gamma,
                 xyb_multiplier_dct,
-                xyb_multiplier,
+                xyb_multiplier_context,
                 l2_rgb_multiplier,
                 use_l2,
             )
@@ -172,7 +191,7 @@ def create_image_split(
         lambd,
         gamma,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_rgb_multiplier,
         False
     )
@@ -180,14 +199,14 @@ def create_image_split(
     for i, up_candidate in enumerate(candidate.convert_to_xyb()):
         save_xyb(
             up_candidate,
-            f"out/reconstructed_image_xyb_{index}_{i}.txt",
+            f"{file_prefix}_{i}.txt",
         )
     for i, up_candidate in enumerate(candidate.convert_to_rgb()):
-        save_rgb_image(up_candidate, f"out/reconstructed_image_{index}_{i}.png")
+        save_rgb_image(up_candidate, f"{file_prefix}_{i}.png")
 
-    save_rgb_image(candidate.combine_to_rgb(), f"out/reconstructed_image_{index}_combined.png")
+    save_rgb_image(candidate.combine_to_rgb(), f"{file_prefix}_combined.png")
 
     print(
-        f"creating out/reconstructed_image_{index}_combined.png, wasserstein loss {ws_loss}, compression loss {sum(compression_losses)} ({jnp.array(compression_losses).tolist()})"
+        f"creating {file_prefix}_combined.png, wasserstein loss {ws_loss}, compression loss {sum(compression_losses)} ({jnp.array(compression_losses).tolist()})"
     )
     return ws_loss, compression_losses

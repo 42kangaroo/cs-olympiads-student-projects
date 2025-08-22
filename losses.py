@@ -21,7 +21,7 @@ weight_kernel.at[0, 0].set(0)
 
 
 @jax.jit
-def compression_loss_context(img, xyb_multiplier):
+def compression_loss_context(img, xyb_multiplier_context):
     """
     Computes the compression loss as the average over all values v
 
@@ -34,7 +34,7 @@ def compression_loss_context(img, xyb_multiplier):
     ----------
     img
         the image for which the los should be computed in [H, W, C] format
-    xyb_multiplier
+    xyb_multiplier_context
         a weighting of shape [C] for the different channels
     """
     img_batched = jnp.expand_dims(img, 0)
@@ -46,13 +46,13 @@ def compression_loss_context(img, xyb_multiplier):
         dimension_numbers=("NHWC", "HWIO", "NHWC"),
         feature_group_count=3,
     )
-    scales = jnp.array(xyb_multiplier, dtype=jnp.float32).reshape(1, 1, 1, 3)
+    scales = jnp.array(xyb_multiplier_context, dtype=jnp.float32).reshape(1, 1, 1, 3)
     img_convoluted = jnp.log(1 + jnp.abs(img_convoluted) * scales)
     return jnp.mean(img_convoluted)
 
 
 @jax.jit
-def compression_loss_context_multi(img, xyb_multiplier):
+def compression_loss_context_multi(img, xyb_multiplier_context):
     """
     Computes the compression loss as the average over all values v
 
@@ -66,26 +66,26 @@ def compression_loss_context_multi(img, xyb_multiplier):
     ----------
     img
         the layers of images for which the loss should be computed in [H, W, C] format
-    xyb_multiplier
+    xyb_multiplier_context
         a weighting of shape [C] for the different channels
     """
     return sum(
         [
-            compression_loss_context(img[i], xyb_multiplier) * (0.25 ** i)
+            compression_loss_context(img[i], xyb_multiplier_context) * (0.25 ** i)
             for i in range(len(img))
         ]
     )
 
 
-def compression_loss_coefficients(dct_blocks, xyb_multiplier):
+def compression_loss_coefficients(dct_blocks, xyb_multiplier_context):
     dct_blocks_non_average = jnp.abs(dct_blocks) * weight_kernel
-    scales = jnp.array(xyb_multiplier, dtype=jnp.float32).reshape(1, 1, 3, 1, 1)
+    scales = jnp.array(xyb_multiplier_context, dtype=jnp.float32).reshape(1, 1, 3, 1, 1)
     dct_blocks_recomputed = jnp.log(1 + dct_blocks_non_average * scales)
     return jnp.mean(dct_blocks_recomputed)
 
 
 @jax.jit
-def compression_loss_DCT(dct_blocks, xyb_multiplier_dct, xyb_multiplier, gamma=63):
+def compression_loss_DCT(dct_blocks, xyb_multiplier_dct, xyb_multiplier_context, gamma=63):
     """
     Computes the compression loss as the average over all non-left-upper-corner dct coefficients + context loss of upper left corners
 
@@ -95,7 +95,7 @@ def compression_loss_DCT(dct_blocks, xyb_multiplier_dct, xyb_multiplier, gamma=6
         the image for which the loss should be computed in [H / 8, W / 8, C, 8, 8] format
     xyb_multiplier_dct
         a weighting of shape [C] for the different channels which is used for the coefficients
-    xyb_multiplier
+    xyb_multiplier_context
          a weighting of shape [C] for the different channels which is used for the context loss
     gamma
         weighting of context loss against coefficient loss
@@ -103,13 +103,13 @@ def compression_loss_DCT(dct_blocks, xyb_multiplier_dct, xyb_multiplier, gamma=6
     dct_blocks = subtract_y_from_b(dct_blocks)
     compact = dct_blocks[..., 0, 0]
     compact_loss = compression_loss_context(
-        compact, xyb_multiplier
+        compact, xyb_multiplier_context
     )
     return (compact_loss + gamma * compression_loss_coefficients(dct_blocks, xyb_multiplier_dct)) / (gamma + 1)
 
 
 @jax.jit
-def compression_loss_DCT_multi(dct_blocks, xyb_multiplier_dct, xyb_multiplier, gamma):
+def compression_loss_DCT_multi(dct_blocks, xyb_multiplier_dct, xyb_multiplier_context, gamma):
     """
     Computes the compression loss as the average over all non-left-upper-corner dct coefficients + context loss of upper left corners
     Does this over all layers (which should be smaller by a factor of 2) and weights the result according to their size
@@ -120,13 +120,13 @@ def compression_loss_DCT_multi(dct_blocks, xyb_multiplier_dct, xyb_multiplier, g
         the image for which the loss should be computed in [H / 8, W / 8, C, 8, 8] format
     xyb_multiplier_dct
         a weighting of shape [C] for the different channels which is used for the coefficients
-    xyb_multiplier
+    xyb_multiplier_context
          a weighting of shape [C] for the different channels which is used for the context loss
     gamma
         weighting of context loss against coefficient loss
     """
     return [
-        compression_loss_DCT(dct_blocks[i], xyb_multiplier_dct, xyb_multiplier, gamma)
+        compression_loss_DCT(dct_blocks[i], xyb_multiplier_dct, xyb_multiplier_context, gamma)
         * (0.25 ** i)
         for i in range(len(dct_blocks))
     ]
@@ -153,12 +153,12 @@ def loss_fn(
         lambd,
         gamma,
         xyb_multiplier_dct,
-        xyb_multiplier,
+        xyb_multiplier_context,
         l2_rgb_multiplier,
         use_l2,
 ):
     compression_losses = compression_loss_DCT_multi(
-        optimizer_values.convert_to_xyb_dct(), xyb_multiplier_dct, xyb_multiplier, gamma
+        optimizer_values.convert_to_xyb_dct(), xyb_multiplier_dct, xyb_multiplier_context, gamma
     )
     compression_loss_combined = sum(compression_losses)
 
@@ -167,7 +167,7 @@ def loss_fn(
     else:
         # Compute the Wasserstein loss between the target and the generated image
         ws_loss = wasserstein_loss(optimizer_values.combine_to_rgb(), target_features, log2_sigma)
-    return ws_loss + lambd * compression_loss_combined, (
+    return (ws_loss + lambd * compression_loss_combined) / (1 + lambd), (
         ws_loss,
         compression_losses,
     )
