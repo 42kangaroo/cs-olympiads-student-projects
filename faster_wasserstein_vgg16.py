@@ -1,9 +1,10 @@
 import jax
 import jax.numpy as jnp
-from codex.loss import pretrained_features, multi_wasserstein_distortion
+from codex.loss import pretrained_features, multi_wasserstein_distortion, load_vgg16_model
 
 Array = jax.Array
 ArrayLike = jax.typing.ArrayLike
+load_vgg16_model()
 
 
 def get_features(image, num_scales=3):

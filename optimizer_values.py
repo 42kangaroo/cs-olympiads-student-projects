@@ -19,7 +19,7 @@ class OptimizerValues(eqx.Module):
         pass
 
     def combine_to_rgb(self):
-        xyb_upscaled = [upscale(image, 2**i) for i, image in enumerate(self.convert_to_xyb())]
+        xyb_upscaled = jnp.array([upscale(image, 2**i) for i, image in enumerate(self.convert_to_xyb())])
         return jxl_xyb_to_srgb(jnp.sum(xyb_upscaled, axis=0))
 
 class RGBOptimizerValues(OptimizerValues):
