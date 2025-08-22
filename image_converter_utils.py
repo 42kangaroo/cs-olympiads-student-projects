@@ -4,6 +4,7 @@ import jax.numpy as jnp
 from jax.typing import ArrayLike
 import jax
 import numpy as np
+from PIL import Image
 
 
 # --- padding for entropy model computation
@@ -248,6 +249,18 @@ def jxl_xyb_to_srgb(xyb: ArrayLike) -> ArrayLike:
     # Return the 0-1 range sRGB image.
     return srgb01
 
+def add_y_to_b(img):
+    x = img[:, :, 0, :, :]
+    y = img[:, :, 1, :, :]
+    b = img[:, :, 2, :, :]
+    return jnp.stack([x, y, b + y], axis=-3)
+
+def subtract_y_from_b(img):
+    x = img[:, :, 0, :, :]
+    y = img[:, :, 1, :, :]
+    b = img[:, :, 2, :, :]
+    return jnp.stack([x, y, b - y], axis=-3)
+
 
 # --- DCT <-> XYB converting ---
 
@@ -317,9 +330,16 @@ def dct_to_xyb(dct_blocks: ArrayLike) -> ArrayLike:
 
     return img
 
+# --- saving ---
 
 def save_xyb(
         xyb: ArrayLike, save_path: str = "flattened_xyb.txt"
 ):
     header = f"{xyb.shape[1]}\n{xyb.shape[0]}\n"
     np.savetxt(save_path, np.array(xyb).flatten(), fmt="%.6f", header=header, comments="")
+
+
+def save_rgb_image(img, path):
+    img = np.array((img * 255).astype(jnp.uint8))
+    img = Image.fromarray(img)
+    img.save(path)
