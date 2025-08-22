@@ -5,20 +5,37 @@ from jax.typing import ArrayLike
 import jax
 import numpy as np
 
-# --- Pre-computed JAX constants for efficiency ---
 
-OPSIN_MATRIX = jnp.asarray(
-    [
-        [0.300000011920929, 0.621999979019165, 0.078000001609325],
-        [0.230000004172325, 0.691999971866608, 0.078000001609325],
-        [0.243422687053680, 0.204767450690269, 0.551809847354889],
-    ]
-)
+# --- padding for entropy model computation
 
-INV_OPSIN_MATRIX_T = jnp.linalg.inv(OPSIN_MATRIX).T
+def shifted_border_pad(img):
+    """
+    Pad an NHWC image so that:
+    - Top row: shifted right by 1 from original top row
+    - Left col: shifted down by 1 from original left col
+    - Bottom/right: zero padded
+    """
+    N, H, W, C = img.shape
 
-OPSIN_BIAS = jnp.asarray([0.003793073119596, 0.003793073119596, 0.003793073119596])
-OPSIN_BIAS_CBRT = OPSIN_BIAS ** (1 / 3.0)
+    # Start with normal zero-padding
+    padded = jnp.pad(img, ((0, 0), (1, 0), (1, 0), (0, 0)), mode="constant")
+
+    # Top row: shifted right
+    top_row_shifted = jnp.concatenate(
+        [jnp.zeros((N, 1, 1, C)), img[:, 0:1, :-1, :]], axis=2
+    )
+    padded = padded.at[:, 0:1, :-1, :].set(top_row_shifted)
+
+    # Left column: shifted down
+    left_col_shifted = jnp.concatenate(
+        [jnp.zeros((N, 1, 1, C)), img[:, :-1, 0:1, :]], axis=1
+    )
+    padded = padded.at[:, :-1, 0:1, :].set(left_col_shifted)
+
+    return padded
+
+
+# --- upscaling ---
 
 UPSCALING_PREKERNELS = {  # used to generate final upscaling kernels
     2: [-0.01716200, -0.03452303, -0.04022174, -0.02921014, -0.00624645, 0.14111091, 0.28896755, 0.00278718,
@@ -57,18 +74,6 @@ UPSCALING_PREKERNELS = {  # used to generate final upscaling kernels
         -0.02377053, -0.01522848, -0.00333334, -0.00819975, -0.02964169, -0.04499287, -0.02745350, -0.00612408,
         0.02727416, 0.19446600, 0.00159832, -0.02232473, 0.74982506, 0.11452620, -0.03348048, -0.01605681,
         -0.02070339, -0.00458223]}
-
-
-def generate_dct_matrix(N=8):
-    k = jnp.arange(N)[:, None]  # (8,1)
-    n = jnp.arange(N)[None, :]  # (1,8)
-    dct_mat = jnp.cos(jnp.pi * (2 * n + 1) * k / (2 * N))
-    dct_mat = dct_mat * jnp.sqrt(2 / N)
-    dct_mat = dct_mat.at[0].set(dct_mat[0] / jnp.sqrt(2))  # first row special case
-    return dct_mat
-
-
-DCT_MATRIX_8X8 = generate_dct_matrix(8)
 
 
 def upscale(img, k):
@@ -174,6 +179,22 @@ def generate_kernel(weights, N):
     return kernel
 
 
+# --- XYB <-> sRGB converting ---
+
+OPSIN_MATRIX = jnp.asarray(
+    [
+        [0.300000011920929, 0.621999979019165, 0.078000001609325],
+        [0.230000004172325, 0.691999971866608, 0.078000001609325],
+        [0.243422687053680, 0.204767450690269, 0.551809847354889],
+    ]
+)
+
+INV_OPSIN_MATRIX_T = jnp.linalg.inv(OPSIN_MATRIX).T
+
+OPSIN_BIAS = jnp.asarray([0.003793073119596, 0.003793073119596, 0.003793073119596])
+OPSIN_BIAS_CBRT = OPSIN_BIAS ** (1 / 3.0)
+
+
 @jax.jit
 def srgb_to_jxl_xyb(srgb01: ArrayLike) -> ArrayLike:
     """Converts an sRGB 0-1 image of shape [..., 3] to the XYB colorspace."""
@@ -226,6 +247,20 @@ def jxl_xyb_to_srgb(xyb: ArrayLike) -> ArrayLike:
 
     # Return the 0-1 range sRGB image.
     return srgb01
+
+
+# --- DCT <-> XYB converting ---
+
+def generate_dct_matrix(N=8):
+    k = jnp.arange(N)[:, None]  # (8,1)
+    n = jnp.arange(N)[None, :]  # (1,8)
+    dct_mat = jnp.cos(jnp.pi * (2 * n + 1) * k / (2 * N))
+    dct_mat = dct_mat * jnp.sqrt(2 / N)
+    dct_mat = dct_mat.at[0].set(dct_mat[0] / jnp.sqrt(2))  # first row special case
+    return dct_mat
+
+
+DCT_MATRIX_8X8 = generate_dct_matrix(8)
 
 
 def block_dct_2d(blocks):
