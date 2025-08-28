@@ -41,29 +41,29 @@ def parse_arguments():
     
     # Positional arguments
     parser.add_argument('input_path', 
-                       help='Path to input file or directory (ending with / for directory)')
+                       help='Path to input file or directory (ending with / for directory). If directory, all image files in the directory will be processed')
     parser.add_argument('number_of_layers', type=int, nargs='?', default=2,
-                       help='Number of layers (default: 2)')
+                       help='Number of layers to be encoded (default: 2)')
     
     # Optional arguments
     parser.add_argument('-l', '--lambda', dest='lambd', type=float, default=1.,
-                       help='Lambda value (default: 1)')
+                       help='Lambda value: weight of compression loss compared to wasserstein/l2 loss (default: 1)')
     parser.add_argument('-g', '--gamma', type=float, default=63.,
-                       help='Gamma value (default: 63)')
+                       help='Gamma value: the weight of coefficient loss compared to context loss (default: 63)')
     parser.add_argument('-s', '--sigma', dest='log2_sigma_value', type=float, default=0.,
-                       help='Log2 sigma value (default: 0)')
+                       help='Log2 sigma value: the base 2 log of the size of the kernel used in calculating wasserstein distortion (default: 0)')
     parser.add_argument('-l2', '--l2-turns', dest='l2_turns', type=int, default=90000,
-                       help='L2 turns (default: 90000)')
+                       help='How many rounds of L2 optimization to be done (default: 90000)')
     parser.add_argument('-ws', '--ws-turns', dest='ws_turns', type=int, default=10000,
-                       help='WS turns (default: 10000)')
+                       help='How many rounds of WS optimization to be done (default: 10000)')
     parser.add_argument('-o', '--output', dest='output_path', default="",
-                       help='Output path')
+                       help='Output path: Can be a file or directory. If input is a directory, output must be a directory (default: out/)')
     parser.add_argument('-space', '--variable-space', dest='var_space', default="rgb",
-                       help='Color space (default: rgb)')
+                       help='Specifies the training variable space to use during training. Can be "rgb", "xyz", or "dct" (default: rgb)')
     parser.add_argument('-i', '--intermediate', default="out/",
                        help='Folder to store intermediate files in (default: out/)')
     parser.add_argument('-c', '--use-settings', dest='take_settings', action='store_true',
-                       help='Use settings from settings.conf')
+                       help='Use settings from settings.conf to apply different compression settings to each layer')
     
     return parser.parse_args()
 
