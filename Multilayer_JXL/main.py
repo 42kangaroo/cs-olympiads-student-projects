@@ -1,24 +1,14 @@
 # Implements the file to call that takes in the arguments, calls create_image and calls the cpp to save it as jxl
 
 import os
-# Suppress XLA/CUDA warning messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow/XLA logs
-os.environ['XLA_FLAGS'] = '--xla_gpu_cuda_data_dir=/usr/local/cuda'
-os.environ['JAX_LOG_COMPILES'] = '0'  # Suppress JAX compilation logs
-
 import sys
 import argparse
 import train as tr
 import jax.numpy as jnp
-import jax
-# Additional JAX logging suppression
-jax.config.update('jax_log_compiles', False)
-
 from PIL import Image
 import codex as cdx
 import faster_wasserstein_vgg16 as fastW
 import subprocess
-import logging
 
 class bcolors:
     HEADER = '\033[95m'
