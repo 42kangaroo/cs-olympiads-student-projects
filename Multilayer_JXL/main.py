@@ -108,7 +108,8 @@ def main():
                 target = jnp.asarray(file, dtype=jnp.float32) / 255.
                 min_multiple = (2**(2+args.number_of_layers))
                 target = jnp.array(target[:(target.shape[0]//min_multiple)*min_multiple, :(target.shape[1]//min_multiple)*min_multiple, :])
-                ff = f.replace('/', '_').split('.')[0]
+                split_f = f.replace('/', '_').split('.')
+                ff = split_f[-2].strip('_') if len(split_f) > 1 and split_f[-2] != "" else split_f[-1].strip('_')
                 try:
                     target_features = fastW.get_features(target)
                     tr.create_image_split(
