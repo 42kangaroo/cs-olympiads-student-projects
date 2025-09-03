@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
         JxlEncoderFrameSettings *frame_settings = JxlEncoderFrameSettingsCreate(enc, nullptr);
 
         // Set resampling factor (power of 2 downscaling)
-        int scale_factor = 1 << (N - i);
+        int scale_factor = 1 << i;
         cout << "Adding frame " << i << " with scale factor " << scale_factor << endl;
 
         JxlEncoderFrameSettingsSetOption(frame_settings, JXL_ENC_FRAME_SETTING_RESAMPLING, scale_factor);
