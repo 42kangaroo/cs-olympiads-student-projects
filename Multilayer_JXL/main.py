@@ -33,7 +33,7 @@ def parse_arguments():
     parser.add_argument('input_path', 
                        help='Path to input file or directory (ending with / for directory). If directory, all image files in the directory will be processed')
     parser.add_argument('number_of_layers', type=int, nargs='?', default=2,
-                       help='Number of layers to be encoded (default: 2)')
+                       help='Number of layers to be encoded (default: 2). At the moment only 2 is supported')
     
     # Optional arguments
     parser.add_argument('-l', '--lambda', dest='lambd', type=float, default=1.,

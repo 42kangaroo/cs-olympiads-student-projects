@@ -1,7 +1,7 @@
 #include "../include/jxl/encode.h"
-#include <vector>
 #include <fstream>
 #include <iostream>
+#include <vector>
 using namespace std;
 
 /**
@@ -18,14 +18,10 @@ using namespace std;
  * @param height (output) Height of the image.
  * @return A flat vector of floats containing the pixel values.
  */
-vector<float> loadImage(const string &path,
-                        size_t num_channels,
-                        size_t &width,
-                        size_t &height)
-{
+vector<float> loadImage(const string &path, size_t num_channels, size_t &width,
+                        size_t &height) {
     ifstream file(path);
-    if (!file)
-    {
+    if (!file) {
         throw runtime_error("Failed to open file: " + path);
     }
 
@@ -38,10 +34,8 @@ vector<float> loadImage(const string &path,
     vector<float> frame(frame_bytes);
 
     // Read pixel data in row-major order
-    for (size_t i = 0; i < width * height; ++i)
-    {
-        for (size_t c = 0; c < num_channels; ++c)
-        {
+    for (size_t i = 0; i < width * height; ++i) {
+        for (size_t c = 0; c < num_channels; ++c) {
             file >> frame[i * num_channels + c];
         }
     }
@@ -50,36 +44,41 @@ vector<float> loadImage(const string &path,
     return frame;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     const size_t num_channels = 3;    // RGB
     const size_t bytes_per_pixel = 4; // 32-bit float per component
 
-    if (argc < 4)
-    {
+    if (argc < 4) {
         cerr << "Usage: " << argv[0]
-             << " <N> <image1> <image2> ... <imageN> <output> [d1 d2 ... dN]"
+             << " <N> <image1> <image2> ... <imageN> <output> [d1 d2 "
+                "... dN]"
              << endl;
         return 1;
     }
 
     // Number of input images
     int N = stoi(argv[1]);
-    if (argc < 3 + N)
-    {
+
+    // TODO: add support for 3+ layer encoding
+    if (N != 2) {
+        cerr << "The encoder currently only supports 2 layers. Recieved " << N
+             << " layers instead" << endl return 1;
+    }
+
+    if (argc < 3 + N) {
         cerr << "Not enough arguments for N=" << N << endl;
         return 1;
     }
 
     string output_path = argv[2 + N];
-    bool has_distances = (argc >= 3 + N + N); // optional distances for each frame
+    bool has_distances =
+        (argc >= 3 + N + N); // optional distances for each frame
 
     vector<size_t> widths(N), heights(N);
     vector<vector<float>> frames;
 
     // Load all images into memory
-    for (int i = 0; i < N; i++)
-    {
+    for (int i = 0; i < N; i++) {
         size_t w, h;
         vector<float> f = loadImage(argv[2 + i], num_channels, w, h);
         widths[i] = w;
@@ -109,37 +108,40 @@ int main(int argc, char *argv[])
     JxlEncoderSetColorEncoding(enc, &color_encoding);
 
     // Define pixel format: RGB float
-    JxlPixelFormat pixel_format = {num_channels, JXL_TYPE_FLOAT, JXL_NATIVE_ENDIAN, 0};
+    JxlPixelFormat pixel_format = {num_channels, JXL_TYPE_FLOAT,
+                                   JXL_NATIVE_ENDIAN, 0};
 
     // Add all lower-resolution layers (frames 1..N-1)
-    for (int i = 1; i < N; i++)
-    {
-        JxlEncoderFrameSettings *frame_settings = JxlEncoderFrameSettingsCreate(enc, nullptr);
+    for (int i = 1; i < N; i++) {
+        JxlEncoderFrameSettings *frame_settings =
+            JxlEncoderFrameSettingsCreate(enc, nullptr);
 
         // Set resampling factor (power of 2 downscaling)
         int scale_factor = 1 << i;
-        cout << "Adding frame " << i << " with scale factor " << scale_factor << endl;
+        cout << "Adding frame " << i << " with scale factor " << scale_factor
+             << endl;
 
-        JxlEncoderFrameSettingsSetOption(frame_settings, JXL_ENC_FRAME_SETTING_RESAMPLING, scale_factor);
-        JxlEncoderFrameSettingsSetOption(frame_settings, JXL_ENC_FRAME_SETTING_ALREADY_DOWNSAMPLED, 1);
+        JxlEncoderFrameSettingsSetOption(
+            frame_settings, JXL_ENC_FRAME_SETTING_RESAMPLING, scale_factor);
+        JxlEncoderFrameSettingsSetOption(
+            frame_settings, JXL_ENC_FRAME_SETTING_ALREADY_DOWNSAMPLED, 1);
 
         // If distances are provided, use them
-        if (has_distances)
-        {
+        if (has_distances) {
             double d = atof(argv[3 + N + i]);
             JxlEncoderSetFrameDistance(frame_settings, d);
         }
 
         // Add frame data to encoder
-        JxlEncoderAddImageFrame(frame_settings, 
-                                &pixel_format,
-                                frames[i].data(), 
-                                widths[i] * heights[i] * num_channels * bytes_per_pixel);
+        JxlEncoderAddImageFrame(frame_settings, &pixel_format, frames[i].data(),
+                                widths[i] * heights[i] * num_channels *
+                                    bytes_per_pixel);
     }
 
     // Add the highest-resolution layer (first image)
     {
-        JxlEncoderFrameSettings *frame_settings = JxlEncoderFrameSettingsCreate(enc, nullptr);
+        JxlEncoderFrameSettings *frame_settings =
+            JxlEncoderFrameSettingsCreate(enc, nullptr);
 
         // Initialize frame header
         JxlFrameHeader *frame_header = new JxlFrameHeader;
@@ -147,17 +149,15 @@ int main(int argc, char *argv[])
         std::cout << "JxlFrameHeader initialized." << std::endl;
 
         // Optionally set distance if provided
-        if (argv[4])
-        {
+        if (argv[4]) {
             JxlEncoderSetFrameDistance(frame_settings, atof(argv[4]));
         }
 
         // Apply header and add frame data
         JxlEncoderSetFrameHeader(frame_settings, frame_header);
-        JxlEncoderAddImageFrame(frame_settings, 
-                                &pixel_format,
-                                frames[0].data(), 
-                                widths[0] * heights[0] * num_channels * bytes_per_pixel);
+        JxlEncoderAddImageFrame(frame_settings, &pixel_format, frames[0].data(),
+                                widths[0] * heights[0] * num_channels *
+                                    bytes_per_pixel);
     }
 
     // No more frames will be added
@@ -170,11 +170,9 @@ int main(int argc, char *argv[])
 
     // Encode and expand buffer as needed
     JxlEncoderStatus status;
-    do
-    {
+    do {
         status = JxlEncoderProcessOutput(enc, &next_out, &avail_out);
-        if (status == JXL_ENC_NEED_MORE_OUTPUT)
-        {
+        if (status == JXL_ENC_NEED_MORE_OUTPUT) {
             size_t offset = next_out - compressed.data();
             compressed.resize(compressed.size() * 2);
             next_out = compressed.data() + offset;
@@ -182,8 +180,7 @@ int main(int argc, char *argv[])
         }
     } while (status == JXL_ENC_NEED_MORE_OUTPUT);
 
-    if (status != JXL_ENC_SUCCESS)
-    {
+    if (status != JXL_ENC_SUCCESS) {
         std::cerr << "Encoding failed!" << std::endl;
         JxlEncoderDestroy(enc);
         return 1;
@@ -192,17 +189,18 @@ int main(int argc, char *argv[])
     // Save compressed data to file
     size_t compressed_size = next_out - compressed.data();
     std::ofstream out(output_path, std::ios::binary);
-    if (!out.is_open())
-    {
+    if (!out.is_open()) {
         std::cerr << "Failed to open output file: " << output_path << std::endl;
         JxlEncoderDestroy(enc);
         return 1;
     }
 
-    out.write(reinterpret_cast<const char *>(compressed.data()), compressed_size);
+    out.write(reinterpret_cast<const char *>(compressed.data()),
+              compressed_size);
     out.close();
 
-    std::cout << "Saved " << output_path << " with size " << compressed_size << " bytes\n";
+    std::cout << "Saved " << output_path << " with size " << compressed_size
+              << " bytes\n";
 
     // Clean up encoder
     JxlEncoderDestroy(enc);
